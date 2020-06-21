@@ -10,7 +10,7 @@
             }
         ]
     },
-    "custom_objects" : ["person"],
+    "default_objects" : ["person"],
     "default_parameters" : {
         "default_probability" : 50,
         "default_speed" : "fastest",

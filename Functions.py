@@ -4,6 +4,7 @@ import keras
 import json
 import base64
 import time
+import os
 from imageai.Detection import ObjectDetection
 
 json_config = json.load(open('config.json'))
@@ -40,6 +41,7 @@ def Detection(detector, objects, image_path, minimum_probability = json_config['
         except :
             abort(Response('Invalid image format', status= 400))  
 
+    #delete_image(input_path)
     return detections
 
 def upload_image(imagefile, image_name, image_type):
@@ -51,14 +53,17 @@ def upload_image(imagefile, image_name, image_type):
         abort(Response('Invalid image', status= 400))
     return image_path
 
-# def delete_image(input_path):
-#     with open(json_config['upload_directory'] + image_path, "wb") as
+def delete_image(input_path):
+    if(os.path.exists(input_path)):
+        os.remove(input_path)
+         
 
 def handle_request(json_body):
     image_file = json_body.get('image')
     image_name = json_body.get('image_name')
     image_type = json_body.get('image_type')
-    objects = json_body.get('objects')
+
+    objects = json_body.get('objects') if json_body.get('objects')!=None else json_config['default_objects']
     minimum_probability = json_body.get('minimum_probability') if json_body.get('minimum_probability')!=None else json_config['default_parameters']['default_probability']
     detection_speed = json_body.get('detection_speed') if json_body.get('detection_speed')!=None else json_config['default_parameters']['default_speed']
 
