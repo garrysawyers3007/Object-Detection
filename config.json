@@ -17,5 +17,6 @@
         "upload_directory" : "uploads/",
         "detected_directory" : "detected/",
         "log_file": "error.log"
-    }
+    },
+    "error_log" : "error.log" 
 }
