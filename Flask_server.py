@@ -4,7 +4,6 @@ app = Flask(__name__)
 
 detector = None 
 json_config = None
-logger(app)
 
 @app.route('/image/', methods=['POST'])
 def image_request():
@@ -12,12 +11,14 @@ def image_request():
 
         json_body= request.get_json()
 
-        image_name, image_type, image_file, objects, minimum_probability, detection_speed = handle_request(json_body, json_config)
-        
-        image_path = upload_image(json_config, image_file, image_name, image_type)
+        objects, minimum_probability, detection_speed, unique_id = handle_user_request(json_body, json_config)
+
+        image_name, image_type, image_file = handle_image_request(json_body, unique_id)
+
+        image_path = upload_image(json_config, image_file, image_name, image_type, unique_id)
 
         t0=time.perf_counter()
-        detections = Detection(json_config, detector, objects, image_path, minimum_probability)
+        detections = Detection(json_config, detector, objects, image_path, minimum_probability, unique_id)
         t1=time.perf_counter()
         
         print("Time elapsed in detection:", t1-t0)
@@ -34,7 +35,6 @@ if __name__ == '__main__':
 
     json_config = get_config('config.json')
 
-    #logger(json_config, app)
     upload_path = json_config['default_parameters']['upload_directory']
     detected_path = json_config['default_parameters']['detected_directory']
 

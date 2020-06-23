@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, abort, Response
-from logging import FileHandler, ERROR, Formatter
 import tensorflow
 import keras
 import json
@@ -19,7 +18,7 @@ def get_config(file_name):
     try:
         json_config = json.load(open(file_name))
         return json_config
-    except FileNotFoundError as e:
+    except FileNotFoundError as error:
         abort(500)
 
 def load_model(model_path , detection_speed):
@@ -30,7 +29,7 @@ def load_model(model_path , detection_speed):
 
     return detector
 
-def Detection(json_config, detector, objects, image_path, minimum_probability):
+def Detection(json_config, detector, objects, image_path, minimum_probability, unique_id):
     curr_date = str(date.today())
     curr_time = str(datetime.now().strftime("%H-%M-%S"))
 
@@ -52,19 +51,21 @@ def Detection(json_config, detector, objects, image_path, minimum_probability):
 
         try :
             detections = detector.detectCustomObjectsFromImage(custom_objects = custom, input_image= input_path, output_image_path= output_path,minimum_percentage_probability=minimum_probability, thread_safe=True)
-        except Exception as e:
-            abort(Response('Error - {}'.format(e), status= 400))
+        except Exception as error:
+            logger(error, unique_id)
+            abort(Response('Error - {}'.format(error), status= 400))
     else :
 
         try:
             detections = detector.detectObjectsFromImage(input_image= input_path, output_image_path= output_path,minimum_percentage_probability=minimum_probability, thread_safe=True)
-        except Exception as e:
-            abort(Response('Error - {}'.format(e), status= 400))  
+        except Exception as error:
+            logger(error, unique_id)
+            abort(Response('Error - {}'.format(error), status= 400))  
 
     #delete_image(input_path)
     return detections
 
-def upload_image(json_config, image_file, image_name, image_type):
+def upload_image(json_config, image_file, image_name, image_type, unique_id):
 
     curr_date = str(date.today())
     curr_time = str(datetime.now().strftime("%H-%M-%S"))
@@ -77,9 +78,9 @@ def upload_image(json_config, image_file, image_name, image_type):
     try:
         with open(input_dir + image_path, "wb") as fh:
             fh.write(base64.b64decode(image_file))
-    except Exception as e:
-        
-        abort(Response('Error - {}'.format(e), status= 400))
+    except Exception as error:
+        logger(error, unique_id)
+        abort(Response('Error - {}'.format(error), status= 400))
     return image_path
 
 def delete_image(input_path):
@@ -87,25 +88,34 @@ def delete_image(input_path):
         os.remove(input_path)
          
 
-def handle_request(json_body, json_config):
+def handle_image_request(json_body, unique_id):
     image_file = json_body.get('image')
     image_name = json_body.get('image_name')
     image_type = json_body.get('image_type')
 
+
+    if not isinstance(image_file, str) or not isinstance(image_name, str) or not isinstance(image_type, str) :
+        logger('Error - Invalid Request', unique_id)
+        abort(Response('Error - Invalid Request', status= 400))
+
+    return image_name, image_type, image_file
+
+
+def handle_user_request(json_body, json_config):
     objects = json_body.get('objects') if json_body.get('objects')!=None else json_config['default_objects']
     minimum_probability = json_body.get('minimum_probability') if json_body.get('minimum_probability')!=None else json_config['default_parameters']['default_probability']
     detection_speed = json_body.get('detection_speed') if json_body.get('detection_speed')!=None else json_config['default_parameters']['default_speed']
+    unique_id = json_body.get('id')
 
-    if not isinstance(image_file, str) or not isinstance(image_name, str) or not isinstance(image_type, str) or not isinstance(objects, list) or not isinstance(minimum_probability, int) and not isinstance(minimum_probability, float) or not isinstance(detection_speed, str) :
+    if not isinstance(objects, list) or not isinstance(minimum_probability, int) and not isinstance(minimum_probability, float) or not isinstance(detection_speed, str) or not isinstance(unique_id, str) :
+        logger('Error - Invalid Request', unique_id)
         abort(Response('Error - Invalid Request', status= 400))
 
-    return image_name, image_type, image_file, objects, minimum_probability, detection_speed
+    return objects, minimum_probability, detection_speed, unique_id
     
-def logger(app):
-    file_handler = FileHandler('error.log')
-    file_handler.setFormatter(Formatter(
-        ''' 
-        %(asctime)s - %(message)s
-        '''
-    ))
-    app.logger.addHandler(file_handler)
+def logger(error, unique_id):
+    with open("error.log","a+") as log:
+        curr_date = str(date.today())
+        curr_time = str(datetime.now().strftime("%H-%M-%S"))
+        log_time = curr_date + '_' + curr_time 
+        log.write('\n'+log_time + unique_id + '-' + str(error))
